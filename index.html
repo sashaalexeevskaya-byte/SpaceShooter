@@ -2,154 +2,162 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <title>Space Grammar Fighter</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial', sans-serif; user-select: none; }
-        #gameCanvas { display: block; margin: 0 auto; background: #1a1a2e; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #000; 
+            font-family: 'Arial', sans-serif; 
+            user-select: none; 
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            margin: 0 auto;
+            background: #1a1a2e;
+        }
+        canvas { 
+            display: block; 
+            width: 100%; 
+            height: 100%; 
+        }
         
         /* UI HUD */
-        #ui-layer { position: absolute; top: 10px; left: 10px; color: white; pointer-events: none; width: 100%; z-index: 5; }
-        .hud-item { margin-right: 20px; font-size: 18px; font-weight: bold; text-shadow: 1px 1px 2px black; }
+        #ui-layer { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            color: white; 
+            pointer-events: none; 
+            width: 100%; 
+            z-index: 5; 
+        }
+        .hud-item { 
+            margin-right: 20px; 
+            font-size: 18px; 
+            font-weight: bold; 
+            text-shadow: 1px 1px 2px black; 
+        }
         
         /* Экраны (Старт, Гейм Овер) */
         #start-screen, #game-over-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            background: rgba(0,0,0,0.9); 
+            display: flex; flex-direction: column;
             justify-content: center; align-items: center; color: white;
-            z-index: 10;
+            z-index: 100;
         }
 
         /* Квиз Модальное окно */
         #quiz-modal {
-            display: none;
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            display: none; /* Скрыто по умолчанию */
+            position: absolute; 
+            top: 50%; left: 50%; 
+            transform: translate(-50%, -50%);
             width: 80%; max-width: 500px;
-            background: #fff; border-radius: 10px; padding: 20px;
-            box-shadow: 0 0 20px rgba(78, 204, 163, 0.8);
-            z-index: 20; text-align: center; color: #333;
+            background: #fff; 
+            border: 4px solid #4ecca3;
+            border-radius: 10px; 
+            padding: 25px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            z-index: 200; /* Самый высокий слой */
+            text-align: center; 
+            color: #333;
         }
-        #quiz-question { font-size: 20px; margin-bottom: 20px; font-weight: bold; }
+        #quiz-question { 
+            font-size: 22px; 
+            margin-bottom: 25px; 
+            font-weight: bold; 
+            color: #1a1a2e;
+        }
         .quiz-btn {
-            display: block; width: 100%; margin: 10px 0; padding: 12px;
-            background: #4ecca3; color: white; border: none; border-radius: 5px;
-            font-size: 18px; cursor: pointer; transition: 0.2s;
+            display: block; width: 100%; margin: 10px 0; padding: 15px;
+            background: #4ecca3; color: #000; border: none; border-radius: 5px;
+            font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s;
         }
-        .quiz-btn:hover { background: #3db892; }
+        .quiz-btn:hover { background: #3db892; transform: scale(1.02); }
 
-        button.main-btn { padding: 10px 20px; font-size: 20px; cursor: pointer; background: #4ecca3; border: none; color: #000; border-radius: 5px; margin-top: 20px; }
+        button.main-btn { 
+            padding: 15px 30px; font-size: 20px; cursor: pointer; 
+            background: #4ecca3; border: none; color: #000; 
+            border-radius: 5px; margin-top: 20px; font-weight: bold; 
+        }
     </style>
 </head>
 <body>
 
-<div id="ui-layer" style="display:none;">
-    <span class="hud-item">HP: <span id="hp-display">3</span></span>
-    <span class="hud-item">Score: <span id="score-display">0</span></span>
-    <span class="hud-item" id="boss-hud" style="display:none;">BOSS HP: <span id="boss-hp-display">10</span></span>
-</div>
+<div id="game-container">
+    <div id="ui-layer" style="display:none;">
+        <span class="hud-item">HP: <span id="hp-display">3</span></span>
+        <span class="hud-item">Score: <span id="score-display">0</span></span>
+        <span class="hud-item" id="boss-hud" style="display:none;">BOSS HP: <span id="boss-hp-display">10</span></span>
+    </div>
 
-<div id="start-screen">
-    <h1>Space Grammar Fighter</h1>
-    <p>Стреляй в: <span id="target-rule" style="color: #4ecca3; font-weight: bold;"></span></p>
-    <p>Босс задаст вопросы при попадании!</p>
-    <button class="main-btn" onclick="startGame()">Start Mission</button>
-</div>
+    <div id="start-screen">
+        <h1>Space Grammar Fighter</h1>
+        <p style="font-size: 18px; margin-bottom: 5px;">Mission: Shoot <span id="target-rule" style="color: #4ecca3; font-weight: bold;"></span></p>
+        <p style="font-size: 14px; color: #aaa;">Arrow Keys to Move | Space to Shoot</p>
+        <button class="main-btn" onclick="startGame()">Start Game</button>
+    </div>
 
-<div id="game-over-screen" style="display:none;">
-    <h1 id="go-title">Game Over</h1>
-    <p id="go-message"></p>
-    <button class="main-btn" onclick="location.reload()">Restart</button>
-</div>
+    <div id="game-over-screen" style="display:none;">
+        <h1 id="go-title">Game Over</h1>
+        <p id="go-message" style="font-size: 20px;"></p>
+        <button class="main-btn" onclick="location.reload()">Play Again</button>
+    </div>
 
-<div id="quiz-modal">
-    <div id="quiz-question">Question text here...</div>
-    <div id="quiz-options">
-        </div>
-</div>
+    <div id="quiz-modal">
+        <div id="quiz-question">Question placeholder</div>
+        <div id="quiz-options"></div>
+    </div>
 
-<canvas id="gameCanvas" width="800" height="600"></canvas>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+</div>
 
 <script>
 /* ==========================================
-   КОНФИГУРАЦИЯ (Будет в редакторе)
+   КОНФИГУРАЦИЯ
    ========================================== */
 const gameConfig = {
     // Настройки геймплея
-    targetWords: ["Apple", "Car", "Book", "Dog", "Pen", "Cup", "Chair"], 
-    distractorWords: ["Water", "Milk", "Rice", "Air", "Music", "Money", "Sand"], 
+    targetWords: ["Apple", "Car", "Book", "Dog", "Pen", "Cup", "Chair", "Phone", "Star", "Tree"], 
+    distractorWords: ["Water", "Milk", "Rice", "Air", "Music", "Money", "Sand", "Love", "Salt", "Time"], 
     targetRuleText: "Countable Nouns", 
     
-    shipsToWin: 5, // Уменьшил для быстрого теста босса (поставь больше, если нужно)
+    shipsToWin: 10, // Сколько кораблей сбить до босса
     playerHP: 3,
+    bossHP: 10, // Равно количеству вопросов
     
     // БОСС КВИЗ (10 вопросов)
-    // correctIndex: номер правильного ответа в массиве options (начинается с 0)
     bossQuestions: [
-        { 
-            text: "1) I have three waters in my bag.", 
-            options: ["Correct", "Incorrect"], 
-            correctIndex: 1 
-        },
-        { 
-            text: "2) There are five apples on the table.", 
-            options: ["Correct", "Incorrect"], 
-            correctIndex: 0 
-        },
-        { 
-            text: "3) Choose: 'I have ___ milk at home.'", 
-            options: ["a milk", "some milk"], 
-            correctIndex: 1 
-        },
-        { 
-            text: "4) Choose: 'I buy ___ at the bakery.'", 
-            options: ["some bread", "a bread"], 
-            correctIndex: 0 
-        },
-        { 
-            text: "5) 'Information' is a countable noun.", 
-            options: ["True", "False"], 
-            correctIndex: 1 
-        },
-        { 
-            text: "6) Which word is uncountable?", 
-            options: ["Banana", "Sugar"], 
-            correctIndex: 1 
-        },
-        { 
-            text: "7) How ___ money do you have?", 
-            options: ["many", "much"], 
-            correctIndex: 1 
-        },
-        { 
-            text: "8) I need ___ advice.", 
-            options: ["some", "an"], 
-            correctIndex: 0 
-        },
-        { 
-            text: "9) The furniture ___ expensive.", 
-            options: ["is", "are"], 
-            correctIndex: 0 
-        },
-        { 
-            text: "10) Look at all that ___!", 
-            options: ["snow", "snows"], 
-            correctIndex: 0 
-        }
+        { text: "1) I have three ___ in my bag.", options: ["waters", "water"], correctIndex: 1 }, // Trick question fix: water is uncountable usually, but context "bottles". Let's use standard rule: Uncountable -> water. Wait, the option was "waters". Incorrect. Correct is "water".
+        // Let's stick to your requested questions explicitly:
+        { text: "1) I have three waters in my bag.", options: ["Correct", "Incorrect"], correctIndex: 1 },
+        { text: "2) There are five apples on the table.", options: ["Correct", "Incorrect"], correctIndex: 0 },
+        { text: "3) Choose: 'I have ___ milk at home.'", options: ["a milk", "some milk"], correctIndex: 1 },
+        { text: "4) Choose: 'I buy ___ at the bakery.'", options: ["some bread", "a bread"], correctIndex: 0 },
+        { text: "5) 'Information' is a countable noun.", options: ["True", "False"], correctIndex: 1 },
+        { text: "6) Which word is uncountable?", options: ["Banana", "Sugar"], correctIndex: 1 },
+        { text: "7) How ___ money do you have?", options: ["many", "much"], correctIndex: 1 },
+        { text: "8) I need ___ advice.", options: ["some", "an"], correctIndex: 0 },
+        { text: "9) The furniture ___ expensive.", options: ["is", "are"], correctIndex: 0 },
+        { text: "10) Look at all that ___!", options: ["snow", "snows"], correctIndex: 0 }
     ],
 
     fontFamily: "Arial",
     wordColor: "#FFFFFF",
-    wordSize: "16px",
+    wordSize: "18px",
     
     msgRight: "Right!",
     msgWrong: "Wrong!",
-    msgWin: "Mission Complete! Knowledge Acquired!",
-    msgLose: "Mission Failed!",
+    msgWin: "Mission Complete! You are a Grammar Master!",
+    msgLose: "Mission Failed! Try again.",
     
     enemySpeed: 2,
     asteroidSpeed: 3
 };
-
-// Босс HP равен количеству вопросов
-gameConfig.bossHP = gameConfig.bossQuestions.length;
 
 document.getElementById('target-rule').innerText = gameConfig.targetRuleText;
 
@@ -162,30 +170,30 @@ const uiLayer = document.getElementById('ui-layer');
 
 let state = {
     isPlaying: false,
-    isQuizActive: false, // Флаг для паузы во время квиза
+    isQuizActive: false, 
     score: 0,
     hp: gameConfig.playerHP,
     enemiesKilled: 0,
     bossActive: false,
     bossCurrentHP: gameConfig.bossHP,
-    currentQuestionIndex: 0, // Какой вопрос сейчас задаем
+    currentQuestionIndex: 0, 
     lastShotTime: 0
 };
 
 // Объекты
-const player = { x: 375, y: 520, w: 50, h: 50, speed: 5, color: '#4ecca3', isHit: false };
+const player = { x: 375, y: 520, w: 50, h: 50, speed: 6, color: '#4ecca3', isHit: false };
 let bullets = [];
 let enemies = [];
 let asteroids = [];
 let particles = [];
 let floatingTexts = [];
-let boss = { x: 350, y: -100, w: 100, h: 100, dir: 1, enterSpeed: 2 };
+let boss = { x: 350, y: -120, w: 120, h: 100, dir: 1, enterSpeed: 3 };
 
 // Управление
 const keys = { ArrowLeft: false, ArrowRight: false, Space: false };
 
 window.addEventListener('keydown', (e) => {
-    if(state.isQuizActive) return; // Блокируем управление во время квиза
+    if(state.isQuizActive) return; // Блокировка при квизе
     if(e.code === 'Space') keys.Space = true;
     if(e.code === 'ArrowLeft') keys.ArrowLeft = true;
     if(e.code === 'ArrowRight') keys.ArrowRight = true;
@@ -199,67 +207,62 @@ window.addEventListener('keyup', (e) => {
 function startGame() {
     document.getElementById('start-screen').style.display = 'none';
     uiLayer.style.display = 'block';
-    state.isPlaying = true;
     
-    // Обновляем HP дисплеи
+    // Сброс состояния
+    state.hp = gameConfig.playerHP;
+    state.score = 0;
+    state.enemiesKilled = 0;
+    state.bossActive = false;
+    state.bossCurrentHP = gameConfig.bossHP;
+    state.currentQuestionIndex = 0;
+    state.isPlaying = true;
+    state.isQuizActive = false;
+    
+    bullets = [];
+    enemies = [];
+    asteroids = [];
+    particles = [];
+    floatingTexts = [];
+    player.x = 375;
+    boss.y = -120;
+
     document.getElementById('hp-display').innerText = state.hp;
-    document.getElementById('boss-hp-display').innerText = state.bossCurrentHP;
+    document.getElementById('score-display').innerText = state.score;
+    document.getElementById('boss-hud').style.display = 'none';
 
     gameLoop();
     
-    setInterval(spawnEnemy, 2000);
-    setInterval(spawnAsteroid, 1500);
+    // Интервалы спавна
+    setInterval(() => { if(!state.bossActive && !state.isQuizActive) spawnEnemy(); }, 2000);
+    setInterval(() => { if(!state.bossActive && !state.isQuizActive) spawnAsteroid(); }, 1500);
 }
 
 // --- Логика спавна ---
 function spawnEnemy() {
-    if (!state.isPlaying || state.bossActive || state.isQuizActive) return;
-    
+    if (!state.isPlaying) return;
     const isTarget = Math.random() > 0.5;
     let word = isTarget ? 
         gameConfig.targetWords[Math.floor(Math.random() * gameConfig.targetWords.length)] : 
         gameConfig.distractorWords[Math.floor(Math.random() * gameConfig.distractorWords.length)];
 
     enemies.push({
-        x: Math.random() * (canvas.width - 60),
-        y: -50,
-        w: 60,
-        h: 40,
-        text: word,
-        isTarget: isTarget,
-        speed: gameConfig.enemySpeed
+        x: Math.random() * (canvas.width - 80),
+        y: -50, w: 80, h: 40,
+        text: word, isTarget: isTarget, speed: gameConfig.enemySpeed
     });
 }
 
 function spawnAsteroid() {
-    if (!state.isPlaying || state.bossActive || state.isQuizActive) return;
+    if (!state.isPlaying) return;
     asteroids.push({
         x: Math.random() * (canvas.width - 40),
-        y: -40,
-        r: 20,
-        speed: gameConfig.asteroidSpeed
+        y: -40, r: 25, speed: gameConfig.asteroidSpeed
     });
-}
-
-function spawnFloatingText(text, x, y, color) {
-    floatingTexts.push({ text, x, y, color, life: 60, dy: -1 });
-}
-
-function createExplosion(x, y, color) {
-    for(let i=0; i<10; i++) {
-        particles.push({
-            x: x, y: y,
-            vx: (Math.random() - 0.5) * 5,
-            vy: (Math.random() - 0.5) * 5,
-            life: 30,
-            color: color
-        });
-    }
 }
 
 // --- Обновление физики ---
 function update() {
-    // Если игра не идет или открыт квиз - стоп
+    // ГЛАВНАЯ ПРОВЕРКА: Если квиз активен, не обновляем физику
     if (!state.isPlaying || state.isQuizActive) return;
 
     // Игрок
@@ -268,69 +271,80 @@ function update() {
 
     // Стрельба
     if (keys.Space && Date.now() - state.lastShotTime > 400) {
-        bullets.push({ x: player.x + player.w/2 - 2, y: player.y, w: 4, h: 10, speed: 7 });
+        bullets.push({ x: player.x + player.w/2 - 2, y: player.y, w: 4, h: 12, speed: 8 });
         state.lastShotTime = Date.now();
     }
 
-    // Пули
-    bullets.forEach((b, i) => {
+    // Движение пуль (обратный цикл для безопасного удаления)
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        let b = bullets[i];
         b.y -= b.speed;
         if (b.y < 0) bullets.splice(i, 1);
-    });
+    }
 
-    // Враги (Слова)
-    enemies.forEach((e, i) => {
+    // Движение врагов
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        let e = enemies[i];
         e.y += e.speed;
-        
-        bullets.forEach((b, bi) => {
+
+        // Коллизия с пулями
+        for (let j = bullets.length - 1; j >= 0; j--) {
+            let b = bullets[j];
             if (rectIntersect(b, e)) {
-                bullets.splice(bi, 1);
-                enemies.splice(i, 1);
-                createExplosion(e.x + e.w/2, e.y + e.h/2, '#ffa500');
+                bullets.splice(j, 1); // Удалить пулю
+                enemies.splice(i, 1); // Удалить врага
                 
                 if (e.isTarget) {
                     state.score += 10;
                     state.enemiesKilled++;
+                    createExplosion(e.x + e.w/2, e.y + e.h/2, '#00ff00');
                     spawnFloatingText(gameConfig.msgRight, e.x, e.y, '#00ff00');
                     checkBossSpawn();
                 } else {
                     takeDamage();
+                    createExplosion(e.x + e.w/2, e.y + e.h/2, '#ff0000');
                     spawnFloatingText(gameConfig.msgWrong, e.x, e.y, '#ff0000');
                 }
+                break; // Выход из цикла пуль, так как враг уничтожен
             }
-        });
+        }
         if (e.y > canvas.height) enemies.splice(i, 1);
-    });
+    }
 
     // Астероиды
-    asteroids.forEach((a, i) => {
+    for (let i = asteroids.length - 1; i >= 0; i--) {
+        let a = asteroids[i];
         a.y += a.speed;
         if (circleRectIntersect(a, player)) {
             asteroids.splice(i, 1);
             takeDamage();
             createExplosion(player.x, player.y, '#ffffff');
+        } else if (a.y > canvas.height) {
+            asteroids.splice(i, 1);
         }
-        if (a.y > canvas.height) asteroids.splice(i, 1);
-    });
+    }
 
     // БОСС
     if (state.bossActive) {
+        // Выход босса
         if (boss.y < 50) boss.y += boss.enterSpeed;
         else {
-            boss.x += 2 * boss.dir;
+            boss.x += 3 * boss.dir;
             if (boss.x > canvas.width - boss.w || boss.x < 0) boss.dir *= -1;
         }
 
-        bullets.forEach((b, bi) => {
+        // Проверка попадания в босса
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            let b = bullets[i];
             if (rectIntersect(b, boss)) {
-                bullets.splice(bi, 1);
-                // ЗАПУСК КВИЗА
-                triggerBossQuiz(b.x, b.y);
+                bullets.splice(i, 1); // Удаляем пулю
+                triggerBossQuiz(b.x, b.y); // ЗАПУСКАЕМ КВИЗ
+                return; // ПРЕРЫВАЕМ UPDATE СРАЗУ
             }
-        });
+        }
     }
 
-    // Частицы
+    // Эффекты
     particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life--; if(p.life<=0) particles.splice(i,1); });
     floatingTexts.forEach((t, i) => { t.y += t.dy; t.life--; if(t.life<=0) floatingTexts.splice(i,1); });
     
@@ -339,30 +353,31 @@ function update() {
 
 // --- ЛОГИКА КВИЗА ---
 function triggerBossQuiz(hitX, hitY) {
-    createExplosion(hitX, hitY, '#ff00ff');
-    state.isQuizActive = true; // Пауза
+    state.isQuizActive = true; // СТАВИМ ПАУЗУ
     
-    // Берем вопрос
-    // Если вопросы кончились, берем последний, или рандомный
+    createExplosion(hitX, hitY, '#ff00ff'); // Эффект удара
+    
+    // Получаем текущий вопрос
     let qIdx = state.currentQuestionIndex;
-    if (qIdx >= gameConfig.bossQuestions.length) {
-        qIdx = Math.floor(Math.random() * gameConfig.bossQuestions.length);
-    }
+    // Если вопросы кончились (на всякий случай), берем последний
+    if (qIdx >= gameConfig.bossQuestions.length) qIdx = gameConfig.bossQuestions.length - 1;
     
     const questionData = gameConfig.bossQuestions[qIdx];
     
-    // Рендерим модальное окно
+    // Заполняем HTML
     const modal = document.getElementById('quiz-modal');
     const qText = document.getElementById('quiz-question');
     const qOptions = document.getElementById('quiz-options');
     
     qText.innerText = questionData.text;
-    qOptions.innerHTML = ''; // Очистка старых кнопок
+    qOptions.innerHTML = ''; 
     
     questionData.options.forEach((opt, index) => {
         const btn = document.createElement('button');
         btn.className = 'quiz-btn';
         btn.innerText = opt;
+        // preventDefault чтобы не сбивался фокус
+        btn.onmousedown = (e) => e.preventDefault(); 
         btn.onclick = () => handleQuizAnswer(index, questionData.correctIndex);
         qOptions.appendChild(btn);
     });
@@ -374,7 +389,7 @@ function handleQuizAnswer(selectedIndex, correctIndex) {
     const modal = document.getElementById('quiz-modal');
     modal.style.display = 'none';
     
-    // Небольшая задержка перед снятием паузы, чтобы случайно не выстрелить
+    // Небольшая задержка перед снятием паузы
     setTimeout(() => {
         state.isQuizActive = false;
     }, 100);
@@ -382,21 +397,18 @@ function handleQuizAnswer(selectedIndex, correctIndex) {
     if (selectedIndex === correctIndex) {
         // ПРАВИЛЬНО
         state.bossCurrentHP--;
-        state.currentQuestionIndex++; // Следующий вопрос
+        state.currentQuestionIndex++; 
         document.getElementById('boss-hp-display').innerText = state.bossCurrentHP;
-        spawnFloatingText("Correct!", boss.x, boss.y + 50, '#00ff00');
+        spawnFloatingText("CORRECT!", boss.x + boss.w/2, boss.y + boss.h, '#00ff00');
         
         if (state.bossCurrentHP <= 0) {
             gameWin();
         }
     } else {
         // НЕПРАВИЛЬНО
-        takeDamage(); // Игрок получает урон
-        spawnFloatingText("Wrong Answer!", boss.x, boss.y + 50, '#ff0000');
-        // Босс НЕ теряет HP, вопрос задастся снова (или следующий, зависит от логики, тут оставим тот же вопрос при следующем выстреле)
-        // Если хотим тот же вопрос: state.currentQuestionIndex не меняем
-        // Если хотим пропустить вопрос: state.currentQuestionIndex++ (но тогда босс может не умереть)
-        // Решение: оставляем index прежним, игроку нужно выстрелить и ответить снова.
+        takeDamage();
+        spawnFloatingText("WRONG!", boss.x + boss.w/2, boss.y + boss.h, '#ff0000');
+        // Босс не теряет HP, вопрос задается тот же при следующем попадании
     }
 }
 
@@ -404,6 +416,7 @@ function checkBossSpawn() {
     if (state.enemiesKilled >= gameConfig.shipsToWin && !state.bossActive) {
         state.bossActive = true;
         document.getElementById('boss-hud').style.display = 'inline';
+        document.getElementById('boss-hp-display').innerText = state.bossCurrentHP;
         enemies = [];
         asteroids = [];
     }
@@ -423,7 +436,7 @@ function takeDamage() {
 function gameWin() {
     state.isPlaying = false;
     document.getElementById('game-over-screen').style.display = 'flex';
-    document.getElementById('go-title').innerText = "VICTORY";
+    document.getElementById('go-title').innerText = "YOU WIN!";
     document.getElementById('go-message').innerText = gameConfig.msgWin;
 }
 
@@ -434,13 +447,44 @@ function gameOver() {
     document.getElementById('go-message').innerText = gameConfig.msgLose;
 }
 
-// --- Отрисовка ---
+// --- Утилиты ---
+function spawnFloatingText(text, x, y, color) {
+    floatingTexts.push({ text, x, y, color, life: 60, dy: -1 });
+}
+function createExplosion(x, y, color) {
+    for(let i=0; i<15; i++) {
+        particles.push({
+            x: x, y: y,
+            vx: (Math.random() - 0.5) * 8,
+            vy: (Math.random() - 0.5) * 8,
+            life: 40,
+            color: color
+        });
+    }
+}
+function rectIntersect(r1, r2) {
+    return !(r2.x > r1.x + r1.w || r2.x + r2.w < r1.x || r2.y > r1.y + r1.h || r2.y + r2.h < r1.y);
+}
+function circleRectIntersect(circle, rect) {
+    let distX = Math.abs(circle.x - rect.x - rect.w/2);
+    let distY = Math.abs(circle.y - rect.y - rect.h/2);
+    if (distX > (rect.w/2 + circle.r)) return false; 
+    if (distY > (rect.h/2 + circle.r)) return false;
+    if (distX <= (rect.w/2)) return true; 
+    if (distY <= (rect.h/2)) return true;
+    let dx = distX - rect.w/2; let dy = distY - rect.h/2;
+    return (dx*dx + dy*dy <= (circle.r*circle.r));
+}
+
+// --- Отрисовка (Работает даже на паузе) ---
 function draw() {
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Звезды
     ctx.fillStyle = '#ffffff';
-    for(let i=0; i<10; i++) ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
+    // Простая симуляция звезд (статичная для оптимизации)
+    if(Math.random()>0.9) ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
 
     // Игрок
     ctx.fillStyle = player.isHit ? '#ff0000' : player.color;
@@ -472,10 +516,18 @@ function draw() {
     if (state.bossActive) {
         ctx.fillStyle = '#8a2be2';
         ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
+        // Глаза босса
+        ctx.fillStyle = 'white';
+        ctx.fillRect(boss.x + 20, boss.y + 30, 20, 20);
+        ctx.fillRect(boss.x + boss.w - 40, boss.y + 30, 20, 20);
+        // Рот
+        ctx.fillStyle = 'black';
+        ctx.fillRect(boss.x + 30, boss.y + 70, boss.w - 60, 10);
+        
         ctx.fillStyle = 'white';
         ctx.font = "bold 20px Arial";
         ctx.textAlign = 'center';
-        ctx.fillText("BOSS", boss.x + boss.w/2, boss.y + boss.h/2 + 8);
+        ctx.fillText("BOSS", boss.x + boss.w/2, boss.y - 10);
     }
 
     // Пули
@@ -485,40 +537,24 @@ function draw() {
     // Частицы
     particles.forEach(p => {
         ctx.fillStyle = p.color;
-        ctx.fillRect(p.x, p.y, 3, 3);
+        ctx.fillRect(p.x, p.y, 4, 4);
     });
 
     // Текст
     floatingTexts.forEach(t => {
         ctx.fillStyle = t.color;
-        ctx.font = "bold 20px Arial";
+        ctx.font = "bold 24px Arial";
+        ctx.textAlign = 'center';
         ctx.fillText(t.text, t.x, t.y);
     });
 }
 
 function gameLoop() {
-    // requestAnimationFrame вызывается всегда, но update стопится флагом
     update();
     draw();
     if (state.isPlaying || state.isQuizActive) {
         requestAnimationFrame(gameLoop);
     }
-}
-
-// Утилиты
-function rectIntersect(r1, r2) {
-    return !(r2.x > r1.x + r1.w || r2.x + r2.w < r1.x || r2.y > r1.y + r1.h || r2.y + r2.h < r1.y);
-}
-function circleRectIntersect(circle, rect) {
-    let distX = Math.abs(circle.x - rect.x - rect.w/2);
-    let distY = Math.abs(circle.y - rect.y - rect.h/2);
-    if (distX > (rect.w/2 + circle.r)) return false; 
-    if (distY > (rect.h/2 + circle.r)) return false;
-    if (distX <= (rect.w/2)) return true; 
-    if (distY <= (rect.h/2)) return true;
-    let dx = distX - rect.w/2;
-    let dy = distY - rect.h/2;
-    return (dx*dx + dy*dy <= (circle.r*circle.r));
 }
 </script>
 </body>
