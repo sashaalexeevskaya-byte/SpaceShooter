@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial', sans-serif; }
+        #gameCanvas { display: block; margin: 0 auto; background: #1a1a2e; }
+        #ui-layer { position: absolute; top: 10px; left: 10px; color: white; pointer-events: none; width: 100%; }
+        .hud-item { margin-right: 20px; font-size: 18px; font-weight: bold; }
+        #start-screen, #game-over-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: white;
+            z-index: 10;
+        }
+        button { padding: 10px 20px; font-size: 20px; cursor: pointer; background: #4ecca3; border: none; color: #000; border-radius: 5px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer" style="display:none;">
+    <span class="hud-item">HP: <span id="hp-display">3</span></span>
+    <span class="hud-item">Score: <span id="score-display">0</span></span>
+    <span class="hud-item" id="boss-hud" style="display:none;">BOSS HP: <span id="boss-hp-display">12</span></span>
+</div>
+
+<div id="start-screen">
+    <h1>Space Grammar Fighter</h1>
+    <p>Стреляй в: <span id="target-rule" style="color: #4ecca3; font-weight: bold;"></span></p>
+    <p>Избегай астероидов. Управление: Стрелки (движение) + Пробел (огонь)</p>
+    <button onclick="startGame()">Start Mission</button>
+</div>
+
+<div id="game-over-screen" style="display:none;">
+    <h1 id="go-title">Game Over</h1>
+    <p id="go-message"></p>
+    <button onclick="location.reload()">Restart</button>
+</div>
+
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+/* ==========================================
+   КОНФИГУРАЦИЯ (Это будет менять Редактор)
+   ========================================== */
+const gameConfig = {
+    // Настройки геймплея
+    targetWords: ["Apple", "Car", "Book", "Dog", "Pen"], // Countable (Цели)
+    distractorWords: ["Water", "Milk", "Rice", "Air", "Music"], // Uncountable (Не стрелять)
+    targetRuleText: "Countable Nouns", // Текст задания
+    
+    shipsToWin: 10, // Сколько кораблей нужно сбить до Босса
+    playerHP: 3,
+    bossHP: 12,
+    
+    // Настройки оформления
+    fontFamily: "Arial",
+    wordColor: "#FFFFFF",
+    wordSize: "16px",
+    
+    // Тексты фидбека
+    msgRight: "Right!",
+    msgWrong: "Wrong!",
+    msgWin: "Mission Complete! Planet Saved!",
+    msgLose: "Mission Failed!",
+    
+    // Скорость игры
+    enemySpeed: 2,
+    asteroidSpeed: 3
+};
+
+// Отображаем правило на стартовом экране
+document.getElementById('target-rule').innerText = gameConfig.targetRuleText;
+
+/* ==========================================
+   ДВИЖОК ИГРЫ
+   ========================================== */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const uiLayer = document.getElementById('ui-layer');
+
+// Состояние игры
+let state = {
+    isPlaying: false,
+    score: 0,
+    hp: gameConfig.playerHP,
+    enemiesKilled: 0,
+    bossActive: false,
+    bossCurrentHP: gameConfig.bossHP,
+    lastShotTime: 0
+};
+
+// Объекты
+const player = { x: 375, y: 520, w: 50, h: 50, speed: 5, color: '#4ecca3', isHit: false };
+let bullets = [];
+let enemies = [];
+let asteroids = [];
+let particles = [];
+let floatingTexts = []; // Для "Right!", "Wrong!"
+let boss = { x: 350, y: -100, w: 100, h: 100, dir: 1, enterSpeed: 2 };
+
+// Управление
+const keys = { ArrowLeft: false, ArrowRight: false, Space: false };
+
+window.addEventListener('keydown', (e) => {
+    if(e.code === 'Space') keys.Space = true;
+    if(e.code === 'ArrowLeft') keys.ArrowLeft = true;
+    if(e.code === 'ArrowRight') keys.ArrowRight = true;
+});
+window.addEventListener('keyup', (e) => {
+    if(e.code === 'Space') keys.Space = false;
+    if(e.code === 'ArrowLeft') keys.ArrowLeft = false;
+    if(e.code === 'ArrowRight') keys.ArrowRight = false;
+});
+
+function startGame() {
+    document.getElementById('start-screen').style.display = 'none';
+    uiLayer.style.display = 'block';
+    state.isPlaying = true;
+    gameLoop();
+    
+    // Спавн врагов и астероидов
+    setInterval(spawnEnemy, 2000);
+    setInterval(spawnAsteroid, 1500);
+}
+
+// --- Логика спавна ---
+function spawnEnemy() {
+    if (!state.isPlaying || state.bossActive) return;
+    
+    // 50% шанс правильного или неправильного слова
+    const isTarget = Math.random() > 0.5;
+    let word = "";
+    
+    if (isTarget) {
+        word = gameConfig.targetWords[Math.floor(Math.random() * gameConfig.targetWords.length)];
+    } else {
+        word = gameConfig.distractorWords[Math.floor(Math.random() * gameConfig.distractorWords.length)];
+    }
+
+    enemies.push({
+        x: Math.random() * (canvas.width - 60),
+        y: -50,
+        w: 60,
+        h: 40,
+        text: word,
+        isTarget: isTarget,
+        speed: gameConfig.enemySpeed
+    });
+}
+
+function spawnAsteroid() {
+    if (!state.isPlaying || state.bossActive) return;
+    asteroids.push({
+        x: Math.random() * (canvas.width - 40),
+        y: -40,
+        r: 20, // radius
+        speed: gameConfig.asteroidSpeed
+    });
+}
+
+function spawnFloatingText(text, x, y, color) {
+    floatingTexts.push({ text, x, y, color, life: 60, dy: -1 });
+}
+
+function createExplosion(x, y, color) {
+    for(let i=0; i<10; i++) {
+        particles.push({
+            x: x, y: y,
+            vx: (Math.random() - 0.5) * 5,
+            vy: (Math.random() - 0.5) * 5,
+            life: 30,
+            color: color
+        });
+    }
+}
+
+// --- Обновление физики ---
+function update() {
+    if (!state.isPlaying) return;
+
+    // Игрок
+    if (keys.ArrowLeft && player.x > 0) player.x -= player.speed;
+    if (keys.ArrowRight && player.x < canvas.width - player.w) player.x += player.speed;
+
+    // Стрельба (ограничение скорострельности)
+    if (keys.Space && Date.now() - state.lastShotTime > 400) {
+        bullets.push({ x: player.x + player.w/2 - 2, y: player.y, w: 4, h: 10, speed: 7 });
+        state.lastShotTime = Date.now();
+    }
+
+    // Пули
+    bullets.forEach((b, i) => {
+        b.y -= b.speed;
+        if (b.y < 0) bullets.splice(i, 1);
+    });
+
+    // Враги
+    enemies.forEach((e, i) => {
+        e.y += e.speed;
+        
+        // Коллизия пули с врагом
+        bullets.forEach((b, bi) => {
+            if (rectIntersect(b, e)) {
+                bullets.splice(bi, 1);
+                enemies.splice(i, 1);
+                createExplosion(e.x + e.w/2, e.y + e.h/2, '#ffa500');
+                
+                if (e.isTarget) {
+                    // Правильное попадание
+                    state.score += 10;
+                    state.enemiesKilled++;
+                    spawnFloatingText(gameConfig.msgRight, e.x, e.y, '#00ff00');
+                    checkBossSpawn();
+                } else {
+                    // Ошибка: стрельба не в тот корабль
+                    takeDamage();
+                    spawnFloatingText(gameConfig.msgWrong, e.x, e.y, '#ff0000');
+                }
+            }
+        });
+
+        // Ушел за экран
+        if (e.y > canvas.height) enemies.splice(i, 1);
+    });
+
+    // Астероиды
+    asteroids.forEach((a, i) => {
+        a.y += a.speed;
+        // Коллизия с игроком (круг и прямоугольник упрощенно)
+        if (circleRectIntersect(a, player)) {
+            asteroids.splice(i, 1);
+            takeDamage();
+            createExplosion(player.x, player.y, '#ffffff');
+        }
+        if (a.y > canvas.height) asteroids.splice(i, 1);
+    });
+
+    // БОСС ЛОГИКА
+    if (state.bossActive) {
+        if (boss.y < 50) boss.y += boss.enterSpeed; // Выход босса
+        else {
+            // Движение босса
+            boss.x += 2 * boss.dir;
+            if (boss.x > canvas.width - boss.w || boss.x < 0) boss.dir *= -1;
+        }
+
+        // Попадание в босса
+        bullets.forEach((b, bi) => {
+            if (rectIntersect(b, boss)) {
+                bullets.splice(bi, 1);
+                state.bossCurrentHP--;
+                createExplosion(b.x, b.y, '#ff00ff');
+                document.getElementById('boss-hp-display').innerText = state.bossCurrentHP;
+                
+                if (state.bossCurrentHP <= 0) {
+                    gameWin();
+                }
+            }
+        });
+    }
+
+    // Частицы и текст
+    particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life--; if(p.life<=0) particles.splice(i,1); });
+    floatingTexts.forEach((t, i) => { t.y += t.dy; t.life--; if(t.life<=0) floatingTexts.splice(i,1); });
+
+    // UI Updates
+    document.getElementById('score-display').innerText = state.score;
+}
+
+function checkBossSpawn() {
+    if (state.enemiesKilled >= gameConfig.shipsToWin && !state.bossActive) {
+        state.bossActive = true;
+        document.getElementById('boss-hud').style.display = 'inline';
+        // Очистить обычных врагов
+        enemies = [];
+        asteroids = [];
+    }
+}
+
+function takeDamage() {
+    state.hp--;
+    document.getElementById('hp-display').innerText = state.hp;
+    player.isHit = true;
+    setTimeout(() => player.isHit = false, 200); // Эффект мигания
+
+    if (state.hp <= 0) {
+        gameOver();
+    }
+}
+
+function gameWin() {
+    state.isPlaying = false;
+    document.getElementById('game-over-screen').style.display = 'flex';
+    document.getElementById('go-title').innerText = "VICTORY";
+    document.getElementById('go-message').innerText = gameConfig.msgWin;
+}
+
+function gameOver() {
+    state.isPlaying = false;
+    document.getElementById('game-over-screen').style.display = 'flex';
+    document.getElementById('go-title').innerText = "GAME OVER";
+    document.getElementById('go-message').innerText = gameConfig.msgLose;
+}
+
+// --- Отрисовка ---
+function draw() {
+    // Фон
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Звезды
+    ctx.fillStyle = '#ffffff';
+    for(let i=0; i<10; i++) ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
+
+    // Игрок
+    ctx.fillStyle = player.isHit ? '#ff0000' : player.color;
+    // Рисуем треугольник (корабль)
+    ctx.beginPath();
+    ctx.moveTo(player.x + player.w/2, player.y);
+    ctx.lineTo(player.x + player.w, player.y + player.h);
+    ctx.lineTo(player.x, player.y + player.h);
+    ctx.fill();
+
+    // Враги
+    enemies.forEach(e => {
+        // Корабль
+        ctx.fillStyle = '#e94560'; 
+        ctx.fillRect(e.x, e.y, e.w, e.h);
+        // Текст (Слова)
+        ctx.fillStyle = gameConfig.wordColor;
+        ctx.font = gameConfig.wordSize + ' ' + gameConfig.fontFamily;
+        ctx.textAlign = 'center';
+        ctx.fillText(e.text, e.x + e.w/2, e.y + e.h/2 + 5);
+    });
+
+    // Астероиды
+    ctx.fillStyle = '#533e85';
+    asteroids.forEach(a => {
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, a.r, 0, Math.PI*2);
+        ctx.fill();
+    });
+
+    // Босс
+    if (state.bossActive) {
+        ctx.fillStyle = '#8a2be2';
+        ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
+        ctx.fillStyle = 'white';
+        ctx.fillText("BOSS", boss.x + boss.w/2, boss.y + boss.h/2);
+    }
+
+    // Пули
+    ctx.fillStyle = '#fdb44b';
+    bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+
+    // Частицы
+    particles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, 3, 3);
+    });
+
+    // Всплывающий текст
+    floatingTexts.forEach(t => {
+        ctx.fillStyle = t.color;
+        ctx.font = "bold 20px Arial";
+        ctx.fillText(t.text, t.x, t.y);
+    });
+}
+
+function gameLoop() {
+    if (state.isPlaying) {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+// Утилиты коллизий
+function rectIntersect(r1, r2) {
+    return !(r2.x > r1.x + r1.w || 
+             r2.x + r2.w < r1.x || 
+             r2.y > r1.y + r1.h || 
+             r2.y + r2.h < r1.y);
+}
+
+function circleRectIntersect(circle, rect) {
+    let distX = Math.abs(circle.x - rect.x - rect.w/2);
+    let distY = Math.abs(circle.y - rect.y - rect.h/2);
+
+    if (distX > (rect.w/2 + circle.r)) { return false; }
+    if (distY > (rect.h/2 + circle.r)) { return false; }
+
+    if (distX <= (rect.w/2)) { return true; } 
+    if (distY <= (rect.h/2)) { return true; }
+
+    let dx = distX - rect.w/2;
+    let dy = distY - rect.h/2;
+    return (dx*dx + dy*dy <= (circle.r*circle.r));
+}
+
+</script>
+</body>
+</html>
